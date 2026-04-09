@@ -9,7 +9,7 @@ export class TwoCaptchaApi implements ICredentialType {
     name = 'twoCaptchaApi';
     displayName = '2Captcha API';
     // Исправлен путь до иконки (она лежит в папке с нодой)
-    icon = 'file:../nodes/TwoCaptcha/2captcha.svg';
+    icon = 'file:../nodes/TwoCaptcha/2captcha.svg'as const;
     documentationUrl = 'https://2captcha.com/api-docs';
 
     properties: INodeProperties[] = [
