@@ -1,7 +1,7 @@
 {
-    "name": "n8n-nodes-2captcha",
-    "version": "0.1.1",
-    "description": "n8n node to bypass captchas using 2Captcha API",
+    "name": "n8n-nodes-2captcha-official",
+    "version": "1.0.1",
+    "description": "Official n8n node to bypass captchas natively using 2Captcha API",
     "license": "MIT",
     "homepage": "https://2captcha.com",
     "keywords": [
@@ -40,9 +40,6 @@
         "nodes": [
             "dist/nodes/TwoCaptcha/TwoCaptcha.node.js"
         ]
-    },
-    "dependencies": {
-        "2captcha-ts": "^1.1.2"
     },
     "devDependencies": {
         "@n8n/node-cli": "*",
