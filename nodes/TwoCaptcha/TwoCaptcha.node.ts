@@ -5,8 +5,8 @@ import {
     INodeTypeDescription,
     IHttpRequestOptions,
     NodeOperationError,
+    sleep,
 } from 'n8n-workflow';
-import { setTimeout as sleep } from 'timers/promises';
 
 export class TwoCaptcha implements INodeType {
     description: INodeTypeDescription = {
@@ -30,7 +30,6 @@ export class TwoCaptcha implements INodeType {
             },
         ],
         properties: [
-            // Ресурс (Исправляет предупреждение линтера о группировке)
             {
                 displayName: 'Resource',
                 name: 'resource',
@@ -44,7 +43,6 @@ export class TwoCaptcha implements INodeType {
                 ],
                 default: 'captcha',
             },
-            // Тип капчи (Алфавитный порядок и строгий Title Case)
             {
                 displayName: 'Captcha Type',
                 name: 'operation',
@@ -56,12 +54,11 @@ export class TwoCaptcha implements INodeType {
                     },
                 },
                 options: [
-                    { name: 'Cloudflare Turnstile', value: 'turnstile' },
-                    { name: 'HCaptcha', value: 'hcaptcha' },
-                    { name: 'Normal (Image To Text)', value: 'normal' },
-                    { name: 'ReCAPTCHA Enterprise', value: 'recaptchaEnterprise' },
-                    { name: 'ReCAPTCHA V2', value: 'recaptchaV2' },
-                    { name: 'ReCAPTCHA V3', value: 'recaptchaV3' },
+                    { name: 'Cloudflare Turnstile', value: 'turnstile', action: 'Cloudflare turnstile a captcha' },
+                    { name: 'Normal (Image To Text)', value: 'normal', action: 'Normal image to text a captcha' },
+                    { name: 'ReCAPTCHA Enterprise', value: 'recaptchaEnterprise', action: 'Recaptcha enterprise a captcha' },
+                    { name: 'ReCAPTCHA V2', value: 'recaptchaV2', action: 'Recaptcha v2 a captcha' },
+                    { name: 'ReCAPTCHA V3', value: 'recaptchaV3', action: 'Recaptcha v3 a captcha' },
                 ],
                 default: 'turnstile',
             },
@@ -75,7 +72,7 @@ export class TwoCaptcha implements INodeType {
                     show: {
                         resource: ['captcha'],
                         operation: [
-                            'turnstile', 'recaptchaV2', 'recaptchaV3', 'recaptchaEnterprise', 'hcaptcha'
+                            'turnstile', 'recaptchaV2', 'recaptchaV3', 'recaptchaEnterprise'
                         ],
                     },
                 },
@@ -91,7 +88,7 @@ export class TwoCaptcha implements INodeType {
                     show: {
                         resource: ['captcha'],
                         operation: [
-                            'turnstile', 'recaptchaV2', 'recaptchaV3', 'recaptchaEnterprise', 'hcaptcha'
+                            'turnstile', 'recaptchaV2', 'recaptchaV3', 'recaptchaEnterprise'
                         ],
                     },
                 },
@@ -174,9 +171,6 @@ export class TwoCaptcha implements INodeType {
                             enterprisePayload: { s: this.getNodeParameter('action', i) as string }
                         };
                         break;
-                    case 'hcaptcha':
-                        taskPayload = { type: 'HCaptchaTaskProxyless', websiteURL: url, websiteKey: sitekey };
-                        break;
                     case 'normal':
                         taskPayload = { 
                             type: 'ImageToTextTask', 
@@ -196,7 +190,6 @@ export class TwoCaptcha implements INodeType {
                     json: true,
                 };
 
-                // n8n сам добавит clientKey в тело запроса
                 const createResponse = await this.helpers.httpRequestWithAuthentication.call(this, 'twoCaptchaApi', createOptions);
 
                 if (createResponse.errorId !== 0) {

@@ -8,7 +8,8 @@ import {
 export class TwoCaptchaApi implements ICredentialType {
     name = 'twoCaptchaApi';
     displayName = '2Captcha API';
-    icon = 'file:2captcha.svg';
+    // Исправлен путь до иконки (она лежит в папке с нодой)
+    icon = 'file:../nodes/TwoCaptcha/2captcha.svg';
     documentationUrl = 'https://2captcha.com/api-docs';
 
     properties: INodeProperties[] = [
@@ -23,17 +24,16 @@ export class TwoCaptchaApi implements ICredentialType {
         },
     ];
 
-    // n8n автоматически подставит clientKey в тело любого POST-запроса
-    authenticate = {
+    // Исправлена типизация (убрано "as IAuthenticateGeneric")
+    authenticate: IAuthenticateGeneric = {
         type: 'generic',
         properties: {
             body: {
                 clientKey: '={{$credentials.apiKey}}',
             },
         },
-    } as IAuthenticateGeneric;
+    };
 
-    // Функция проверки ключа прямо из окна создания Credentials
     test: ICredentialTestRequest = {
         request: {
             baseURL: 'https://api.2captcha.com',
