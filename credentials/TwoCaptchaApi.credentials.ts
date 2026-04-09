@@ -8,8 +8,7 @@ import {
 export class TwoCaptchaApi implements ICredentialType {
     name = 'twoCaptchaApi';
     displayName = '2Captcha API';
-    // Исправлен путь до иконки (она лежит в папке с нодой)
-    icon = 'file:../nodes/TwoCaptcha/2captcha.svg'as const;
+    icon = 'file:../nodes/TwoCaptcha/2captcha.svg' as const;
     documentationUrl = 'https://2captcha.com/api-docs';
 
     properties: INodeProperties[] = [
@@ -24,7 +23,6 @@ export class TwoCaptchaApi implements ICredentialType {
         },
     ];
 
-    // Исправлена типизация (убрано "as IAuthenticateGeneric")
     authenticate: IAuthenticateGeneric = {
         type: 'generic',
         properties: {
@@ -34,10 +32,11 @@ export class TwoCaptchaApi implements ICredentialType {
         },
     };
 
+    // Исправлен URL с /getApiBalance на /getBalance
     test: ICredentialTestRequest = {
         request: {
             baseURL: 'https://api.2captcha.com',
-            url: '/getApiBalance',
+            url: '/getBalance',
             method: 'POST',
             body: {
                 clientKey: '={{$credentials.apiKey}}',
