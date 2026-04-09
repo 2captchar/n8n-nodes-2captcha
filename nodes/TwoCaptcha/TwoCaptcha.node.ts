@@ -4,10 +4,9 @@ import {
     INodeType,
     INodeTypeDescription,
     IHttpRequestOptions,
+    NodeOperationError,
 } from 'n8n-workflow';
-
-// Функция-помощник для создания паузы между запросами
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+import { setTimeout as sleep } from 'timers/promises';
 
 export class TwoCaptcha implements INodeType {
     description: INodeTypeDescription = {
@@ -21,6 +20,7 @@ export class TwoCaptcha implements INodeType {
         defaults: {
             name: '2Captcha',
         },
+        usableAsTool: true,
         inputs: ['main'],
         outputs: ['main'],
         credentials: [
@@ -30,28 +30,41 @@ export class TwoCaptcha implements INodeType {
             },
         ],
         properties: [
-            // ==========================================
-            // 1. ВЫБОР ТИПА КАПЧИ (OPERATION)
-            // ==========================================
+            // Ресурс (Исправляет предупреждение линтера о группировке)
+            {
+                displayName: 'Resource',
+                name: 'resource',
+                type: 'options',
+                noDataExpression: true,
+                options: [
+                    {
+                        name: 'Captcha',
+                        value: 'captcha',
+                    },
+                ],
+                default: 'captcha',
+            },
+            // Тип капчи (Алфавитный порядок и строгий Title Case)
             {
                 displayName: 'Captcha Type',
                 name: 'operation',
                 type: 'options',
                 noDataExpression: true,
+                displayOptions: {
+                    show: {
+                        resource: ['captcha'],
+                    },
+                },
                 options: [
                     { name: 'Cloudflare Turnstile', value: 'turnstile' },
-                    { name: 'ReCAPTCHA v2', value: 'recaptchaV2' },
-                    { name: 'ReCAPTCHA v3', value: 'recaptchaV3' },
+                    { name: 'HCaptcha', value: 'hcaptcha' },
+                    { name: 'Normal (Image To Text)', value: 'normal' },
                     { name: 'ReCAPTCHA Enterprise', value: 'recaptchaEnterprise' },
-                    { name: 'hCaptcha', value: 'hcaptcha' },
-                    { name: 'Normal (Image to Text)', value: 'normal' },
+                    { name: 'ReCAPTCHA V2', value: 'recaptchaV2' },
+                    { name: 'ReCAPTCHA V3', value: 'recaptchaV3' },
                 ],
                 default: 'turnstile',
             },
-            
-            // ==========================================
-            // 2. БАЗОВЫЕ ПОЛЯ
-            // ==========================================
             {
                 displayName: 'Page URL',
                 name: 'url',
@@ -60,6 +73,7 @@ export class TwoCaptcha implements INodeType {
                 default: '',
                 displayOptions: {
                     show: {
+                        resource: ['captcha'],
                         operation: [
                             'turnstile', 'recaptchaV2', 'recaptchaV3', 'recaptchaEnterprise', 'hcaptcha'
                         ],
@@ -75,6 +89,7 @@ export class TwoCaptcha implements INodeType {
                 default: '',
                 displayOptions: {
                     show: {
+                        resource: ['captcha'],
                         operation: [
                             'turnstile', 'recaptchaV2', 'recaptchaV3', 'recaptchaEnterprise', 'hcaptcha'
                         ],
@@ -82,17 +97,16 @@ export class TwoCaptcha implements INodeType {
                 },
                 description: 'The sitekey, googlekey, or App ID found in the HTML code',
             },
-
-            // ==========================================
-            // 3. ПОЛЯ ДЛЯ RECAPTCHA V3
-            // ==========================================
             {
                 displayName: 'Action',
                 name: 'action',
                 type: 'string',
                 default: 'verify',
                 displayOptions: {
-                    show: { operation: ['recaptchaV3', 'recaptchaEnterprise'] },
+                    show: { 
+                        resource: ['captcha'],
+                        operation: ['recaptchaV3', 'recaptchaEnterprise'] 
+                    },
                 },
             },
             {
@@ -101,13 +115,12 @@ export class TwoCaptcha implements INodeType {
                 type: 'number',
                 default: 0.3,
                 displayOptions: {
-                    show: { operation: ['recaptchaV3'] },
+                    show: { 
+                        resource: ['captcha'],
+                        operation: ['recaptchaV3'] 
+                    },
                 },
             },
-
-            // ==========================================
-            // 4. ОБЫЧНАЯ КАРТИНКА
-            // ==========================================
             {
                 displayName: 'Image (Base64)',
                 name: 'base64',
@@ -115,7 +128,10 @@ export class TwoCaptcha implements INodeType {
                 required: true,
                 default: '',
                 displayOptions: {
-                    show: { operation: ['normal'] },
+                    show: { 
+                        resource: ['captcha'],
+                        operation: ['normal'] 
+                    },
                 },
                 description: 'Base64 encoded string of the captcha image',
             },
@@ -126,22 +142,14 @@ export class TwoCaptcha implements INodeType {
         const items = this.getInputData();
         const returnData: INodeExecutionData[] = [];
         
-        const credentials = await this.getCredentials('twoCaptchaApi');
-        if (!credentials || !credentials.apiKey) {
-            throw new Error('No API key provided!');
-        }
-        
-        const clientKey = credentials.apiKey as string;
-
         for (let i = 0; i < items.length; i++) {
             try {
                 const operation = this.getNodeParameter('operation', i) as string;
-                let taskPayload: any = {};
+                let taskPayload: Record<string, unknown> = {};
 
                 const url = this.getNodeParameter('url', i, '') as string;
                 const sitekey = this.getNodeParameter('sitekey', i, '') as string;
 
-                // 1. Формируем сырой JSON для API 2Captcha
                 switch (operation) {
                     case 'turnstile':
                         taskPayload = { type: 'TurnstileTaskProxyless', websiteURL: url, websiteKey: sitekey };
@@ -176,30 +184,28 @@ export class TwoCaptcha implements INodeType {
                         };
                         break;
                     default:
-                        throw new Error(`Unsupported operation: ${operation}`);
+                        throw new NodeOperationError(this.getNode(), `Unsupported operation: ${operation}`, { itemIndex: i });
                 }
 
-                // 2. Отправляем задачу на решение (createTask) через встроенный HTTP n8n
                 const createOptions: IHttpRequestOptions = {
                     method: 'POST',
                     url: 'https://api.2captcha.com/createTask',
                     body: {
-                        clientKey: clientKey,
                         task: taskPayload,
                     },
                     json: true,
                 };
 
-                const createResponse = await this.helpers.httpRequest(createOptions);
+                // n8n сам добавит clientKey в тело запроса
+                const createResponse = await this.helpers.httpRequestWithAuthentication.call(this, 'twoCaptchaApi', createOptions);
 
                 if (createResponse.errorId !== 0) {
-                    throw new Error(`2Captcha Error: ${createResponse.errorDescription || 'Unknown error'}`);
+                    throw new NodeOperationError(this.getNode(), `2Captcha Error: ${createResponse.errorDescription || 'Unknown error'}`, { itemIndex: i });
                 }
 
                 const taskId = createResponse.taskId;
-                let finalToken: any = null;
+                let finalToken: string | null = null;
                 
-                // 3. Запускаем цикл ожидания (до 24 раз по 5 секунд = 2 минуты)
                 for (let attempt = 0; attempt < 24; attempt++) {
                     await sleep(5000);
 
@@ -207,13 +213,12 @@ export class TwoCaptcha implements INodeType {
                         method: 'POST',
                         url: 'https://api.2captcha.com/getTaskResult',
                         body: {
-                            clientKey: clientKey,
                             taskId: taskId,
                         },
                         json: true,
                     };
 
-                    const resultResponse = await this.helpers.httpRequest(resultOptions);
+                    const resultResponse = await this.helpers.httpRequestWithAuthentication.call(this, 'twoCaptchaApi', resultOptions);
 
                     if (resultResponse.status === 'ready') {
                         const solution = resultResponse.solution;
@@ -223,7 +228,7 @@ export class TwoCaptcha implements INodeType {
                 }
 
                 if (!finalToken) {
-                    throw new Error('Task timeout: Captcha was not solved within 2 minutes.');
+                    throw new NodeOperationError(this.getNode(), 'Task timeout: Captcha was not solved within 2 minutes.', { itemIndex: i });
                 }
 
                 returnData.push({
