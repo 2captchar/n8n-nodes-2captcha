@@ -4,6 +4,9 @@ import {
     INodeType,
     INodeTypeDescription,
     IHttpRequestOptions,
+    JsonObject,
+    NodeApiError,
+    NodeConnectionTypes,
     NodeOperationError,
     sleep,
 } from 'n8n-workflow';
@@ -21,8 +24,8 @@ export class TwoCaptcha implements INodeType {
             name: '2Captcha',
         },
         usableAsTool: true,
-        inputs: ['main'],
-        outputs: ['main'],
+        inputs: [NodeConnectionTypes.Main],
+        outputs: [NodeConnectionTypes.Main],
         credentials: [
             {
                 name: 'twoCaptchaApi',
@@ -190,7 +193,12 @@ export class TwoCaptcha implements INodeType {
                     json: true,
                 };
 
-                const createResponse = await this.helpers.httpRequestWithAuthentication.call(this, 'twoCaptchaApi', createOptions);
+                let createResponse;
+                try {
+                    createResponse = await this.helpers.httpRequestWithAuthentication.call(this, 'twoCaptchaApi', createOptions);
+                } catch (error) {
+                    throw new NodeApiError(this.getNode(), error as JsonObject, { itemIndex: i });
+                }
 
                 if (createResponse.errorId !== 0) {
                     throw new NodeOperationError(this.getNode(), `2Captcha Error: ${createResponse.errorDescription || 'Unknown error'}`, { itemIndex: i });
@@ -211,7 +219,12 @@ export class TwoCaptcha implements INodeType {
                         json: true,
                     };
 
-                    const resultResponse = await this.helpers.httpRequestWithAuthentication.call(this, 'twoCaptchaApi', resultOptions);
+                    let resultResponse;
+                    try {
+                        resultResponse = await this.helpers.httpRequestWithAuthentication.call(this, 'twoCaptchaApi', resultOptions);
+                    } catch (error) {
+                        throw new NodeApiError(this.getNode(), error as JsonObject, { itemIndex: i });
+                    }
 
                     if (resultResponse.status === 'ready') {
                         const solution = resultResponse.solution;

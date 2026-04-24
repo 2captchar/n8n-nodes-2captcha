@@ -32,7 +32,6 @@ export class TwoCaptchaApi implements ICredentialType {
         },
     };
 
-    // Исправлен URL с /getApiBalance на /getBalance
     test: ICredentialTestRequest = {
         request: {
             baseURL: 'https://api.2captcha.com',
